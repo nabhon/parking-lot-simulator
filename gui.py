@@ -31,10 +31,17 @@ class App:
         self.mode_menu.pack()
 
         self.window.bind("<m>", self.toggle_mode)  # M key toggles mode
+        self.window.bind("<q>", self.quit_app)  # Q key exits program
 
         self.running = True
         self.thread = threading.Thread(target=self.update)
         self.thread.start()
+
+    def quit_app(self, event=None):
+        self.running = False
+        self.cap.release()
+        self.window.quit()
+        self.window.destroy()
 
     def toggle_mode(self, event=None):
         # Toggle between Entrance and Exit mode

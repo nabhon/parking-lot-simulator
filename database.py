@@ -1,11 +1,13 @@
 from tinydb import TinyDB, Query
 from datetime import datetime
+import math
 
 db = TinyDB("parking_data.json")
 plates = db.table("plates")
 Plate = Query()
 
-FEE_PER_HOUR = 20.0
+FIRST_HOUR_FEE = 20.0
+ADDITIONAL_HOUR_FEE = 40.0
 
 def handle_entry_detection(plate_number):
     record = plates.get((Plate.plate_number == plate_number) & (Plate.exit_time == None))
@@ -27,8 +29,16 @@ def handle_exit_detection(plate_number):
 
     exit_time = datetime.now()
     entry_time = datetime.fromisoformat(record["entry_time"])
-    duration = (exit_time - entry_time).total_seconds() / 3600
-    fee = round(duration * FEE_PER_HOUR, 2)
+    duration_hours = (exit_time - entry_time).total_seconds() / 3600
+    
+    # Round up to the next hour
+    total_hours = math.ceil(duration_hours)
+    
+    # Calculate fee: first hour at 20 baht, remaining hours at 40 baht
+    if total_hours <= 1:
+        fee = FIRST_HOUR_FEE
+    else:
+        fee = FIRST_HOUR_FEE + (total_hours - 1) * ADDITIONAL_HOUR_FEE
 
     plates.update({
         "exit_time": exit_time.isoformat(),
