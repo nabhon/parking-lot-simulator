@@ -33,15 +33,14 @@ class App:
         self.text_display.pack()
 
         self.mode = StringVar(value="Entrance")  # Mode state
-        self.mode_label = Label(self.scan_view, text="Select Mode:", font=("Arial", 12))
-        self.mode_label.pack()
 
-        self.mode_menu = OptionMenu(self.scan_view, self.mode, "Entrance", "Exit")
-        self.mode_menu.pack()
-
-        # Add Export Button
-        self.export_button = Button(self.scan_view, text="Export to CSV", command=self.export_to_csv, font=("Arial", 12))
-        self.export_button.pack(pady=10)
+        # Create a frame for the export button at the bottom right
+        self.export_frame = Frame(self.scan_view)
+        self.export_frame.pack(side=BOTTOM, fill=X, padx=10, pady=10)
+        
+        # Add Export Button to the right side with increased height
+        self.export_button = Button(self.export_frame, text="Export to CSV", command=self.export_to_csv, font=("Arial", 12), height=2)
+        self.export_button.pack(side=RIGHT)
 
         # Create entry view
         self.entry_view = Frame(self.main_container)
