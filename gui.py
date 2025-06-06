@@ -8,7 +8,7 @@ from database import handle_entry_detection, handle_exit_detection
 class App:
     def __init__(self):
         self.window = Tk()
-        self.window.title("Smart Parking System")
+        self.window.title("Nabhon License Plate Reader")
         self.window.geometry("800x600")
 
         # Video capture
