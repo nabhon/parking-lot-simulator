@@ -5,6 +5,7 @@ from PIL import Image, ImageTk
 from detector import detect_plate_and_read
 from database import handle_entry_detection, handle_exit_detection
 import time
+from datetime import datetime
 
 class App:
     def __init__(self):
@@ -55,11 +56,36 @@ class App:
         self.time_display = Label(self.entry_center, textvariable=self.time_var, font=("Arial", 18))
         self.time_display.pack(pady=10)
 
+        # Create exit view
+        self.exit_view = Frame(self.main_container)
+        self.exit_view.pack_propagate(False)
+        
+        # Center container for exit information
+        self.exit_center = Frame(self.exit_view)
+        self.exit_center.place(relx=0.5, rely=0.5, anchor=CENTER)
+        
+        self.qr_label = Label(self.exit_center)
+        self.qr_label.pack(pady=20)
+        
+        self.exit_plate_var = StringVar()
+        self.exit_plate_display = Label(self.exit_center, textvariable=self.exit_plate_var, font=("Arial", 20))
+        self.exit_plate_display.pack(pady=10)
+        
+        self.exit_time_var = StringVar()
+        self.exit_time_display = Label(self.exit_center, textvariable=self.exit_time_var, font=("Arial", 18))
+        self.exit_time_display.pack(pady=10)
+        
+        self.exit_fee_var = StringVar()
+        self.exit_fee_display = Label(self.exit_center, textvariable=self.exit_fee_var, font=("Arial", 18))
+        self.exit_fee_display.pack(pady=10)
+
         self.window.bind("<m>", self.toggle_mode)  # M key toggles mode
         self.window.bind("<q>", self.quit_app)  # Q key exits program
+        self.window.bind("<g>", self.return_to_scan)  # G key returns to scan view
 
         self.running = True
         self.showing_entry = False
+        self.showing_exit = False
         self.entry_end_time = 0
         self.thread = threading.Thread(target=self.update)
         self.thread.start()
@@ -69,13 +95,21 @@ class App:
 
     def show_scan_view(self):
         self.entry_view.pack_forget()
+        self.exit_view.pack_forget()
         self.scan_view.pack(fill=BOTH, expand=True)
 
     def show_entry_view(self):
         self.scan_view.pack_forget()
+        self.exit_view.pack_forget()
         self.entry_view.pack(fill=BOTH, expand=True)
         # Ensure the entry view takes full window size
         self.entry_view.configure(width=800, height=600)
+
+    def show_exit_view(self):
+        self.scan_view.pack_forget()
+        self.entry_view.pack_forget()
+        self.exit_view.pack(fill=BOTH, expand=True)
+        self.exit_view.configure(width=800, height=600)
 
     def quit_app(self, event=None):
         self.running = False
@@ -87,20 +121,55 @@ class App:
         # Toggle between Entrance and Exit mode
         new_mode = "Exit" if self.mode.get() == "Entrance" else "Entrance"
         self.mode.set(new_mode)
-        self.text_var.set(f"🔁 Switched to {new_mode} Mode")
+        self.text_var.set(f"Mode: {new_mode}")
         # Always show scan view when switching modes
         self.show_scan_view()
+
+    def return_to_scan(self, event=None):
+        if self.showing_exit:
+            self.showing_exit = False
+            self.show_scan_view()
+            self.text_var.set(f"Mode: {self.mode.get()}")
 
     def show_entry_info(self, plate):
         self.showing_entry = True
         self.entry_end_time = time.time() + 5  # Show for 5 seconds
         
         # Update entry view information
-        self.plate_var.set(f"License Plate: {plate}")
-        self.time_var.set(f"Entry Time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        self.plate_var.set(f"เลขทะเบียน : {plate}")
+        self.time_var.set(f"เวลาเข้า : {time.strftime('%Y-%m-%d %H:%M:%S')}")
         
         # Switch to entry view
         self.show_entry_view()
+
+    def show_exit_info(self, plate, entry_time, fee):
+        self.showing_exit = True
+        
+        # Load and display QR code
+        try:
+            qr_image = Image.open("qr.png")
+            qr_image = qr_image.resize((200, 200), Image.Resampling.LANCZOS)
+            qr_photo = ImageTk.PhotoImage(qr_image)
+            self.qr_label.configure(image=qr_photo)
+            self.qr_label.image = qr_photo
+        except Exception as e:
+            print(f"Error loading QR code: {e}")
+        
+        # Calculate parking duration
+        entry_datetime = datetime.fromisoformat(entry_time)
+        current_datetime = datetime.now()
+        duration = current_datetime - entry_datetime
+        
+        hours = int(duration.total_seconds() // 3600)
+        minutes = int((duration.total_seconds() % 3600) // 60)
+        
+        # Update exit view information
+        self.exit_plate_var.set(f"เลขทะเบียน : {plate}")
+        self.exit_time_var.set(f"เวลาจอด : {hours} ชั่วโมง {minutes} นาที")
+        self.exit_fee_var.set(f"ราคา : ฿{fee:.2f}")
+        
+        # Switch to exit view
+        self.show_exit_view()
 
     def update(self):
         while self.running:
@@ -124,8 +193,8 @@ class App:
                 self.show_scan_view()
                 self.text_var.set(f"Mode: {self.mode.get()}")
 
-            # Only detect if not showing entry info
-            if not self.showing_entry:
+            # Only detect if not showing entry/exit info
+            if not self.showing_entry and not self.showing_exit:
                 # Detect plate
                 plate, conf = detect_plate_and_read(frame_resized)
                 if plate and conf > 0.5:
@@ -140,7 +209,12 @@ class App:
                     elif current_mode == "Exit":
                         result, fee = handle_exit_detection(plate)
                         if result == "exit":
-                            self.text_var.set(f"🔴 Exit: {plate} | Fee ฿{fee:.2f} | Confidence: {conf:.2f}")
+                            # Get the entry time from the database
+                            from database import db, plates, Plate
+                            record = plates.get((Plate.plate_number == plate) & (Plate.exit_time != None))
+                            if record:
+                                entry_time = record["entry_time"]
+                                self.show_exit_info(plate, entry_time, fee)
                         elif result == "not_found":
                             self.text_var.set(f"⚠️ Not found: {plate}")
 
