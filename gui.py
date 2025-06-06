@@ -3,9 +3,11 @@ import threading
 from tkinter import *
 from PIL import Image, ImageTk
 from detector import detect_plate_and_read
-from database import handle_entry_detection, handle_exit_detection
+from database import handle_entry_detection, handle_exit_detection, db, plates, Plate
 import time
 from datetime import datetime
+import csv
+import os
 
 class App:
     def __init__(self):
@@ -36,6 +38,10 @@ class App:
 
         self.mode_menu = OptionMenu(self.scan_view, self.mode, "Entrance", "Exit")
         self.mode_menu.pack()
+
+        # Add Export Button
+        self.export_button = Button(self.scan_view, text="Export to CSV", command=self.export_to_csv, font=("Arial", 12))
+        self.export_button.pack(pady=10)
 
         # Create entry view
         self.entry_view = Frame(self.main_container)
@@ -225,3 +231,25 @@ class App:
         self.window.mainloop()
         self.running = False
         self.cap.release()
+
+    def export_to_csv(self):
+        # Create filename with current date and time
+        filename = f"parking_records_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        
+        # Get all records from the database
+        all_records = plates.all()
+        
+        # Write to CSV file
+        with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+            fieldnames = ['plate_number', 'entry_time', 'exit_time', 'fee']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            
+            writer.writeheader()
+            for record in all_records:
+                writer.writerow(record)
+        
+        # Show success message
+        self.text_var.set(f"Exported to {filename}")
+        
+        # Reset message after 3 seconds
+        self.window.after(3000, lambda: self.text_var.set(f"Mode: {self.mode.get()}"))
