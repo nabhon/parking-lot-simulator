@@ -15,14 +15,14 @@ class App:
         self.window.title("Nabhon License Plate Reader")
         self.window.geometry("800x600")
 
-        # Video capture
+        # อ่านกล้อง
         self.cap = cv2.VideoCapture(0)
 
-        # Create main container
+        # สร้าง container
         self.main_container = Frame(self.window)
         self.main_container.pack(fill=BOTH, expand=True)
 
-        # Create scan view
+        # สร้างหน้าจอสแกน
         self.scan_view = Frame(self.main_container)
         self.label = Label(self.scan_view)
         self.label.pack()
@@ -32,17 +32,16 @@ class App:
         self.text_display = Label(self.scan_view, textvariable=self.text_var, font=("Arial", 14))
         self.text_display.pack()
 
-        self.mode = StringVar(value="Entrance")  # Mode state
+        self.mode = StringVar(value="Entrance")  # สถานะของโหมด
 
-        # Create a frame for the export button at the bottom right
+        # สร้างกรอบสำหรับปุ่ม export CSV
         self.export_frame = Frame(self.scan_view)
         self.export_frame.pack(side=BOTTOM, fill=X, padx=10, pady=10)
         
-        # Add Export Button to the right side with increased height
+        # สร้างปุ่ม export CSV
         self.export_button = Button(self.export_frame, text="Export to CSV", command=self.export_to_csv, font=("Arial", 12), height=2)
         self.export_button.pack(side=RIGHT)
 
-        # Create entry view
         self.entry_view = Frame(self.main_container)
         self.entry_view.pack_propagate(False)  # Prevent frame from shrinking
         
@@ -84,9 +83,10 @@ class App:
         self.exit_fee_display = Label(self.exit_center, textvariable=self.exit_fee_var, font=("Arial", 18))
         self.exit_fee_display.pack(pady=10)
 
-        self.window.bind("<m>", self.toggle_mode)  # M key toggles mode
-        self.window.bind("<q>", self.quit_app)  # Q key exits program
-        self.window.bind("<g>", self.return_to_scan)  # G key returns to scan view
+        # กด M Q G เพื่อเปลี่ยนโหมด
+        self.window.bind("<m>", self.toggle_mode)
+        self.window.bind("<q>", self.quit_app)
+        self.window.bind("<g>", self.return_to_scan)
 
         self.running = True
         self.showing_entry = False
@@ -95,7 +95,7 @@ class App:
         self.thread = threading.Thread(target=self.update)
         self.thread.start()
 
-        # Show scan view initially
+        # แสดงหน้าจอสแกนเมื่อเริ่ม
         self.show_scan_view()
 
     def show_scan_view(self):
@@ -107,7 +107,6 @@ class App:
         self.scan_view.pack_forget()
         self.exit_view.pack_forget()
         self.entry_view.pack(fill=BOTH, expand=True)
-        # Ensure the entry view takes full window size
         self.entry_view.configure(width=800, height=600)
 
     def show_exit_view(self):
@@ -123,11 +122,11 @@ class App:
         self.window.destroy()
 
     def toggle_mode(self, event=None):
-        # Toggle between Entrance and Exit mode
+        # เปลี่ยนโหมด
         new_mode = "Exit" if self.mode.get() == "Entrance" else "Entrance"
         self.mode.set(new_mode)
         self.text_var.set(f"Mode: {new_mode}")
-        # Always show scan view when switching modes
+        # แสดงหน้าจอสแกนเสมอเมื่อเปลี่ยนโหมด
         self.show_scan_view()
 
     def return_to_scan(self, event=None):
@@ -138,19 +137,19 @@ class App:
 
     def show_entry_info(self, plate):
         self.showing_entry = True
-        self.entry_end_time = time.time() + 5  # Show for 5 seconds
+        self.entry_end_time = time.time() + 5  # แสดงผลการเข้า 5 วินาที
         
-        # Update entry view information
+        # เก็บค่าข้อมูลหน้าจอการเข้า
         self.plate_var.set(f"เลขทะเบียน : {plate}")
         self.time_var.set(f"เวลาเข้า : {time.strftime('%Y-%m-%d %H:%M:%S')}")
         
-        # Switch to entry view
+        # เปลี่ยนไปหน้าจอการเข้า
         self.show_entry_view()
 
     def show_exit_info(self, plate, entry_time, fee):
         self.showing_exit = True
         
-        # Load and display QR code
+        # แสดง QR code
         try:
             qr_image = Image.open("qr.png")
             qr_image = qr_image.resize((200, 200), Image.Resampling.LANCZOS)
@@ -160,7 +159,7 @@ class App:
         except Exception as e:
             print(f"Error loading QR code: {e}")
         
-        # Calculate parking duration
+        # คำนวณระยะเวลาการจอด
         entry_datetime = datetime.fromisoformat(entry_time)
         current_datetime = datetime.now()
         duration = current_datetime - entry_datetime
@@ -168,12 +167,12 @@ class App:
         hours = int(duration.total_seconds() // 3600)
         minutes = int((duration.total_seconds() % 3600) // 60)
         
-        # Update exit view information
+        # เก็บค่าข้อมูลหน้าจอการออก
         self.exit_plate_var.set(f"เลขทะเบียน : {plate}")
         self.exit_time_var.set(f"เวลาจอด : {hours} ชั่วโมง {minutes} นาที")
         self.exit_fee_var.set(f"ราคา : ฿{fee:.2f}")
         
-        # Switch to exit view
+        # เปลี่ยนไปหน้าจอการออก
         self.show_exit_view()
 
     def update(self):
@@ -182,25 +181,24 @@ class App:
             if not ret:
                 continue
 
-            # Resize frame for GUI
             frame_resized = cv2.resize(frame, (640, 480))
             img = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
             img_pil = Image.fromarray(img)
             img_tk = ImageTk.PhotoImage(image=img_pil)
 
-            # Display in GUI
+            # แสดงภาพบนหน้าจอ
             self.label.imgtk = img_tk
             self.label.configure(image=img_tk)
 
-            # Check if we should return to scanning mode
+            # ตรวจสอบว่าควรกลับไปหน้าจอสแกนจากการแสดงผล
             if self.showing_entry and time.time() > self.entry_end_time:
                 self.showing_entry = False
                 self.show_scan_view()
                 self.text_var.set(f"Mode: {self.mode.get()}")
 
-            # Only detect if not showing entry/exit info
+            # ตรวจว่าแสดงข้อมูลอยู่ไหม
             if not self.showing_entry and not self.showing_exit:
-                # Detect plate
+                # ตรวจสอบทะเบียนรถ
                 plate, conf = detect_plate_and_read(frame_resized)
                 if plate and conf > 0.5:
                     current_mode = self.mode.get()
@@ -214,7 +212,7 @@ class App:
                     elif current_mode == "Exit":
                         result, fee = handle_exit_detection(plate)
                         if result == "exit":
-                            # Get the entry time from the database
+                            # ดึงข้อมูลเวลาเข้าจาก database
                             from database import db, plates, Plate
                             record = plates.get((Plate.plate_number == plate) & (Plate.exit_time != None))
                             if record:
@@ -232,13 +230,13 @@ class App:
         self.cap.release()
 
     def export_to_csv(self):
-        # Create filename with current date and time
+        # สร้างชื่อไฟล์ด้วยวันที่และเวลา
         filename = f"parking_records_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
         
-        # Get all records from the database
+        # ดึงข้อมูลทั้งหมดจากฐานข้อมูล
         all_records = plates.all()
         
-        # Write to CSV file
+        # เขียนลงไฟล์ CSV
         with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
             fieldnames = ['plate_number', 'entry_time', 'exit_time', 'fee']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -247,8 +245,6 @@ class App:
             for record in all_records:
                 writer.writerow(record)
         
-        # Show success message
         self.text_var.set(f"Exported to {filename}")
         
-        # Reset message after 3 seconds
         self.window.after(3000, lambda: self.text_var.set(f"Mode: {self.mode.get()}"))

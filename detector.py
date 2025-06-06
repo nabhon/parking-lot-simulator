@@ -6,47 +6,47 @@ from ultralytics import YOLO
 import re
 import time
 
-# Load YOLO model (your custom trained one)
+# Load YOLO model
 model = YOLO("my_model.pt")
 
-# EasyOCR reader with Thai language support and optimized settings
+# EasyOCR อ่านภาษาไทยและภาษาอังกฤษ
 reader = easyocr.Reader(['th', 'en'], gpu=False)
 
-# Global variables for timing control
+# สำหรับควบคุมเวลาการสแกน
 last_scan_time = 0
 SCAN_INTERVAL = 1.0  # Scan every 1 second
 
 def preprocess_plate_image(roi):
-    # Resize the image to a larger size for better OCR
+    # ปรับขนาดภาพให้ใหญ่ขึ้นสำหรับการอ่าน OCR
     roi = cv2.resize(roi, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
     
-    # Convert to grayscale
+    # เปลี่ยนสีของภาพเป็นขาวดำ
     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
     
-    # Apply bilateral filter to remove noise while preserving edges
+    # ทำการลด noise ของภาพ
     gray = cv2.bilateralFilter(gray, 11, 17, 17)
     
-    # Apply adaptive thresholding
+    # ใช้ adaptive thresholding
     thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY_INV, 11, 2)
     
-    # Apply morphological operations to clean up the image
+    # ใช้ morphological operations เพื่อลบ noise ของภาพ
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
     
     return thresh
 
 def is_valid_thai_plate(text):
-    # Remove spaces from the text
+    # ลบเว้นวรรคออกจากข้อความ
     text = text.replace(" ", "")
     
-    # Define patterns for Thai license plates
+    # นิยามรูปแบบทะเบียนรถไทย
     patterns = [
         r'^\d[ก-๙]{2}\d{4}$',  # 1กข1234
         r'^[ก-๙]{2}\d{4}$',    # กข1234
         r'^[ก-๙]{2}\d{3}$'     # กข123
     ]
     
-    # Check if text matches any of the patterns
+    # เช็คว่าข้อความตรงกับรูปแบบทะเบียนรถไทยหรือไม่
     return any(re.match(pattern, text) for pattern in patterns)
 
 def clean_plate_text(text):
@@ -57,12 +57,12 @@ def clean_plate_text(text):
 def detect_plate_and_read(frame):
     global last_scan_time
     
-    # Check if it's time to perform a new scan
+    # เช็คว่าถึงเวลาสแกนหรือไม่
     current_time = time.time()
     if current_time - last_scan_time < SCAN_INTERVAL:
         return None, 0.0
     
-    # Update last scan time
+    # อัปเดตเวลาสแกน
     last_scan_time = current_time
 
     results = model(frame)
@@ -80,22 +80,22 @@ def detect_plate_and_read(frame):
         x1, y1, x2, y2 = map(int, box.xyxy[0])
         roi = frame[y1:y2, x1:x2]
 
-        # Skip if ROI is too small
+        # ข้ามถ้าภาพส่วนที่ต้องการอ่านมีขนาดน้อยกว่า 10x10
         if roi.size == 0 or roi.shape[0] < 10 or roi.shape[1] < 10:
             continue
 
-        # Preprocess the ROI
+        # ปรับภาพส่วนที่ต้องการอ่านให้อ่านง่ายขึ้น
         processed_roi = preprocess_plate_image(roi)
 
-        # Try to read the plate with different preprocessing
+        # อ่านทะเบียนรถ
         ocr_results = reader.readtext(processed_roi)
         
         if ocr_results:
-            # Get the result with highest confidence
+            # ดึงผลลัพธ์ที่มี confidence สูงสุด
             text, confidence = ocr_results[0][1], ocr_results[0][2]
             cleaned_text = clean_plate_text(text)
             
-            # Only update best result if it's a valid Thai plate pattern and confidence is higher
+            # อัปเดตผลลัพธ์ที่มี confidence สูงสุด
             if confidence > best_confidence and is_valid_thai_plate(cleaned_text):
                 best_confidence = confidence
                 best_text = cleaned_text
