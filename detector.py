@@ -13,9 +13,7 @@ model = YOLO("my_model.pt")
 reader = easyocr.Reader(['th', 'en'], gpu=False)
 
 # Global variables for timing control
-last_detection_time = 0
 last_scan_time = 0
-COOLDOWN_PERIOD = 0  # seconds cooldown
 SCAN_INTERVAL = 1.0  # Scan every 1 second
 
 def preprocess_plate_image(roi):
@@ -57,7 +55,7 @@ def clean_plate_text(text):
     return cleaned
 
 def detect_plate_and_read(frame):
-    global last_detection_time, last_scan_time
+    global last_scan_time
     
     # Check if it's time to perform a new scan
     current_time = time.time()
@@ -66,10 +64,6 @@ def detect_plate_and_read(frame):
     
     # Update last scan time
     last_scan_time = current_time
-    
-    # Check if cooldown period has passed
-    if current_time - last_detection_time < COOLDOWN_PERIOD:
-        return None, 0.0
 
     results = model(frame)
     if not results:
@@ -105,9 +99,5 @@ def detect_plate_and_read(frame):
             if confidence > best_confidence and is_valid_thai_plate(cleaned_text):
                 best_confidence = confidence
                 best_text = cleaned_text
-
-    # If we found a valid plate, update the last detection time
-    if best_text is not None:
-        last_detection_time = current_time
 
     return best_text, best_confidence
